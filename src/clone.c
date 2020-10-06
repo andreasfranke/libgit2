@@ -320,7 +320,7 @@ static int checkout_branch(git_repository *repo, git_remote *remote, const git_c
 	return error;
 }
 
-static int clone_into(git_repository *repo, git_remote *_remote, const git_fetch_options *opts, const git_checkout_options *co_opts, const char *branch)
+static int clone_into(git_repository *repo, git_remote *_remote, const git_fetch_options *opts, const git_checkout_options *co_opts, const char *branch, const bool bAllTags)
 {
 	int error;
 	git_buf reflog_message = GIT_BUF_INIT;
@@ -339,7 +339,10 @@ static int clone_into(git_repository *repo, git_remote *_remote, const git_fetch
 
 	memcpy(&fetch_opts, opts, sizeof(git_fetch_options));
 	fetch_opts.update_fetchhead = 0;
-	fetch_opts.download_tags = GIT_REMOTE_DOWNLOAD_TAGS_ALL;
+	if (bAllTags)
+	{
+		fetch_opts.download_tags = GIT_REMOTE_DOWNLOAD_TAGS_ALL;
+	}
 	git_buf_printf(&reflog_message, "clone: from %s", git_remote_url(remote));
 
 	if ((error = git_remote_fetch(remote, NULL, &fetch_opts, git_buf_cstr(&reflog_message))) != 0)
@@ -429,9 +432,19 @@ static int git__clone(
 				repo, origin, &options.fetch_opts, &options.checkout_opts,
 				options.checkout_branch, link);
 		else if (clone_local == 0)
-			error = clone_into(
+			if (options.fetch_opts.download_tags == GIT_REMOTE_DOWNLOAD_TAGS_NONE)
+			{
+				origin->download_tags = GIT_REMOTE_DOWNLOAD_TAGS_NONE;
+				error = clone_into(
 				repo, origin, &options.fetch_opts, &options.checkout_opts,
-				options.checkout_branch);
+				options.checkout_branch, false);
+			}
+			else
+			{
+				error = clone_into(
+				repo, origin, &options.fetch_opts, &options.checkout_opts,
+				options.checkout_branch, true);
+			}
 		else
 			error = -1;
 
